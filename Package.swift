@@ -1,12 +1,12 @@
-// swift-tools-version:3.1
+// swift-tools-version:5.2
 
 import PackageDescription
 
 let package = Package(
   name: "RegisterMachine",
+  dependencies: [],
   targets: [
-    Target(name: "RegisterMachine", dependencies: []),
-    Target(name: "RegisterMachineRuns", dependencies: ["RegisterMachine"])
-  ],
-  dependencies: []
+    .target(name: "RegisterMachine", dependencies: []),
+    .testTarget(name: "RegisterMachineTests", dependencies: ["RegisterMachine"])
+  ]
 )

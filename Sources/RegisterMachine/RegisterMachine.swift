@@ -8,85 +8,76 @@
 
 import Foundation
 
-public typealias Register = Int
-public typealias Line = Int
+public struct RegisterMachine {
+  public typealias RegisterAddress = Int
+  public typealias RegisterValue = UInt
+  public typealias Registers = [RegisterAddress: RegisterValue]
+  public typealias Line = Int
 
-public class RegisterMachine {
-  var registers = [Int: Int]()
-  var program: [Instruction]
+  /// A single step in a register machine program.
+  public enum Instruction: Equatable {
+    
+    /// Increments the value at the given register address then goes to the specified line of the program.
+    case increment(register: RegisterAddress, thenGoTo: Line)
+    
+    /// Decrements the value at the given register address if it is greater than 0
+    /// then goes to the given `success` line of the program
+    /// or goes to the given `failure` line if the value was already 0.
+    case decrement(register: RegisterAddress, success: Line, failure: Line)
+    
+    /// Terminates the execution of the program.
+    case halt
+    
+  }
+  
+  public typealias Program = [Instruction]
+  let program: Program
+  
+  var registers: Registers
+  var instruction: Instruction
   var running = false
-  var nextInstructionIndex = 0
   
-  public init(program: [Instruction]) {
+  public init(program: Program, startRegisters: Registers) {
     self.program = program
+    self.registers = startRegisters
+    self.instruction = program[0]
   }
   
-  public func run(with initialRegisterValues: [Int: Int] = [:]) {
-    print("======== RUNNING ========")
-    registers = initialRegisterValues
-    print(registers)
-    running = true
-    while(running) {
-      perform(instruction: program[nextInstructionIndex])
-      print(registers)
-    }
-    print("========= HALT =========")
+  mutating func increment(register: RegisterAddress, thenGoTo line: Line) {
+    registers[register] = (registers[register] ?? 0) + 1
+    instruction = program[line]
   }
   
-  public static func encode(pair: (Int, Int)) -> Int {
-    let (x,y) = pair
-    return (2 * y + 1) << x
+  mutating func decrement(register: RegisterAddress, success: Line, failure: Line) {
+    let currentValue = (registers[register] ?? 0)
+    if (currentValue > 0) {
+      registers[register] = currentValue - 1
+      instruction = program[success]
+    } else { instruction = program[failure] }
   }
   
-  public static func decode(pair code: Int) -> (Int, Int) {
-    var code = code
-    var x = 0
-    
-    while (code % 2 == 0) {
-      code = code / 2
-      x = x + 1
-    }
-    
-    code = code / 2
-    let y = code
-    
-    return (x, y)
-  }
-  
-  public static func encode(list: [Int]) -> Int {
-    if let head = list.first {
-      let tailEncoding = encode(list: Array(list.dropFirst(1)))
-      return encode(pair: (head, tailEncoding))
-    } else {
-      return 0
-    }
-  }
-  
-  public static func decode(list code: Int) -> [Int] {
-    if code == 0 {
-      return []
-    } else {
-      let (head, tailCode) = decode(pair: code)
-      return [head] + decode(list: tailCode)
-    }
-  }
-  
-  public func perform(instruction: Instruction) {
-    switch instruction {
-    case .increment(register: let register, goto: let nextLine):
-      registers[register] = (registers[register] ?? 0) + 1
-      nextInstructionIndex = nextLine
-    case .decrement(register: let register, success: let successLine, failure: let failureLine):
-      let currentValue = (registers[register] ?? 0)
-      if (currentValue > 0) {
-        registers[register] = currentValue - 1
-        nextInstructionIndex = successLine
-      } else {
-        nextInstructionIndex = failureLine
+  /// Runs the register machine.
+  /// - Returns: Contents of the registers after program termination
+  public mutating func run() -> Registers {
+    while(true) {
+      switch instruction {
+      case let .increment(register: register, thenGoTo: line):
+        increment(register: register, thenGoTo: line)
+      case let .decrement(register: register, success: success, failure: failure):
+        decrement(register: register, success: success, failure: failure)
+      case .halt:
+        return registers
       }
-    case .halt:
-      running = false
     }
+  }
+  
+  /// Runs a register machine with the given program.
+  /// - Parameters:
+  ///   - program: Program to run
+  ///   - startRegisters: The start values of the registers
+  /// - Returns: Contents of the registers after program termination
+  public static func run(program: Program, startRegisters: Registers) -> Registers {
+    var machine = self.init(program: program, startRegisters: startRegisters)
+    return machine.run()
   }
 }
-
